@@ -1,0 +1,35 @@
+Założenia:
+	- długość linii zawierającej polecenia nie przekracza BUFF_SIZE
+	- jedna linia zawiera co najwyżej MAX_COMMANDS poleceń
+	- jedno polecenia zawiera co najwyżej MAX_ARGS argumentów 
+
+Etap 1. 
+
+Główna pętla shella:
+	1. Wypisz prompt na stdout.
+	2. Wczytaj linię z stdin. W etapie 1 zakładamy że wejście jest z konsoli. Można dodatkowo założyć że linie będą przychodziły w całości.
+	3. Sparsuj komendy z linii (można użyć dostarcznego kodu cparse.{c,h}).
+	4. Wykonaj pierwszą ze sparsowanych komend jako program w procesie potomnym. Proces shella powinien poczekać na zakończenie procesu potomnego.
+
+
+Przykład sesji (sesję kończymy CTRL-D który powoduje pojawienie się EOF na stdin):
+./mshell
+> ls /home
+ast bin dude
+> sleep 3
+> ls -las /home
+total 6
+1 drwxrwxrwx  5 bin   bin        320 May 10 09:43 .
+2 drwxr-xr-x 14 root  operator  1280 May 10 09:39 ..
+1 drwxr-xr-x  2 ast   operator   448 Oct 18  2005 ast
+1 drwxr-xr-x  2 bin   operator   448 Oct 18  2005 bin
+1 drwxr-xr-x  3 dude  dude       832 Oct 21 15:00 dude
+>
+> cat /etc/version
+3.1.0
+> cat /etc/version /etc/version
+3.1.0
+3.1.0
+> CTRL-D
+
+Syscall checklist: read write fork exec wait/waitpid

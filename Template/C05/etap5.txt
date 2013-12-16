@@ -1,0 +1,51 @@
+Zaimplementuj wykonywania procesów w tle.
+
+	1. Wszystkie polecenia linii w której ostatnim niebiałym znakiem jest '&' powinny być wykonane w tle. To znaczy że proces shella powinien je uruchomić ale nie czekać aż się zakończą. Można założyć że jeśli polecenia linii mają być uruchomione w tle to w linii nie występują komendy shella (tzn. wszystkie polecenia można potraktować jak programy). Do sprawdzenia czy linia ma być wykonana w tle można żyć funkcji 'in_background' z cparse.h.
+
+	2. Proces shella powinien sprawdzać statusy zakończonych dzieci. W przypadku pracy bez wypisywania prompta statusy te można ignorować, w przypadku trybu z promptem należy wypisywać informacje o zakończonych procesach z tła przed każdym wypisaniem prompta w formacie:
+	Process (pid) ended with status (status).
+	Process (pid) ended with status (status) killed by signal (signo).
+	
+	3. Należy zadbać o to żeby nie zostawiać procesów zombie. W przypadku trybu z promptem należy uwzględnić przypadek kiedy prompt nie będzie wypisany przez długi czas (np. sleep 10 | sleep 10 & ; sleep 1000000). Dopuszaczalne jest rozwiązanie które przechowuje jedynie ustaloną liczbę statusów (będącą stałą kompilacji) zakończeń dzieci aż do wypisania prompta a pozostałe dzieci pozostawia jako zombie aż do czasu następnego wypisania prompta.
+
+	4. CTRL-C wysyła sygnał SIGINT do wszystkich procesów z grupy procesów foreground'u. Należy zadbać o to żeby sygnał ten nie docierał do procesów z tła. Przy tym procesy uruchomione w tle powinny mieć zarejestrowaną domyślną obsługę tego sygnału.
+
+Syscall checklist: sigaction, sigprocmask, sigsuspend, setsid
+
+
+Przykład sesji:
+> sleep 20 | sleep 21 | sleep 22 &
+> ps aux | grep sleep
+user     11766  0.0  0.0   7208   628 ?        Ss   11:04   0:00 sleep 20		
+user     11767  0.0  0.0   7208   628 ?        Ss   11:04   0:00 sleep 21
+user     11768  0.0  0.0   7208   628 ?        Ss   11:04   0:00 sleep 22
+user     11775  0.0  0.0   9440   928 pts/1    S+   11:04   0:00 grep sleep
+>
+Process 11766 ended with status 0.
+Process 11767 ended with status 0.
+Process 11768 ended with status 0.
+>sleep 10 | sleep 10 | sleep 10 &            
+>sleep 30	(ten sleep nie powinien być przerwany wcześniej niż po 30s)
+Process 11791 ended with status 0.
+Process 11792 ended with status 0.
+Process 11793 ended with status 0.
+>sleep 10 | sleep 10 | sleep 10 &
+>sleep 10 | ls | sort | wc 	(to polecenie powinno potrwać 10s)
+     28      28     284
+Process: 11816 ended with status:0 .
+Process: 11817 ended with status:0 .
+Process: 11815 ended with status:0 .
+>sleep 10 | sleep 10 | sleep 10 &
+>sleep 1000	(z innego terminala spawdź czy nie ma procesów zombie po przynajmniej 10s ale przed zakończeniem sleep 1000)
+(CTRL-C) (powinien przerwać sleep 1000)
+>sleep 1000 &
+>sleep 10
+(CTRL-C) (powinien przerwać sleep 10 ale nie sleep 1000)
+>ps aux | grep sleep
+user     11831  0.0  0.0   7208   628 ?        Ss   11:18   0:00 sleep 1000
+user     11834  0.0  0.0   9440   928 pts/1    S+   11:19   0:00 grep sleep
+>/bin/kill -SIGINT 11831
+>
+Process 11831 ended with status 0 killed by signal 2.
+>exit
+

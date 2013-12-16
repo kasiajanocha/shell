@@ -1,0 +1,22 @@
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+void create_unique_path(ppid) {
+	
+}
+
+int main(int argc, char * argv[]){
+	int val;
+	int my_pid = getpid();
+	int parent_pid = getppid();
+	close(1);
+	int fildes = open("common.txt", O_CREAT);
+	
+	//write(fildes, /*buf*/, 1);
+	
+	while (read(3,&val,4)==4){
+		printf("%d\n", val);
+	}
+}
