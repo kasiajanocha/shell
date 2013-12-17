@@ -19,7 +19,12 @@ char input_buf[2*BUFF_SIZE+1];
 int beg;
 int end;
 
+int shell_commands() {
+	
+}
+
 int exec_one(command_s s){
+	//
 	if(s.in_file_name != NULL) {
 			open(s.in_file_name, O_RDONLY);
 	}

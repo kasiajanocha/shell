@@ -9,7 +9,7 @@ Testy:
 ./mshell < test.e2.1.in > test.e2.1.out.m
 sh < test.e2.1.in > test.e2.1.out.s
 diff test.e2.1.out.m test.e2.1.out.s
-
+  
 ./splitter < test.e2.1.in | ./mshell > test.e2.1.out.m
 diff test.e2.1.out.m test.e2.1.out.s
 
