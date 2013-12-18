@@ -1,0 +1,99 @@
+
+void myprintf(const char* format, ...)
+{
+      va_list arguments;
+      int length,i,j,dl;
+      dl=strlen(format);
+      int akt=0;
+      va_start(arguments, format);
+      while(akt<dl)
+      {
+              if(*(format+akt)=='%')
+              {
+                      if(*(format+1+akt)=='s')
+                      {
+                              char* String=va_arg(arguments,char*);
+                              length=strlen(String);
+                              for(i=0;i<length;i++)
+                              {
+                                      putchar(*(String+i));
+                              }
+                      }
+                      if(*(format+1+akt)=='d')
+                      {
+                              int Int=va_arg(arguments,int);
+                              int help=Int;
+                              int length=0;
+                              if(help==0)length=1;
+                              if(help>0)while(help)
+                              {
+                                      help=help/10;
+                                      length++;
+                              }
+                              if(Int==0)
+                              {
+                                      putchar('0');
+                              }
+                              else
+                              {
+                                      int ten=1;
+                                      for(j=1;j<length;j++)ten*=10;
+                                      help=Int;
+                                      while(help)
+                                      {
+                                              putchar((help/ten)+'0');
+                                              help=help%ten;
+                                              ten=ten/10;
+                                      }
+                                      while(ten>0){putchar('0'); ten/=10;}
+                              }
+                      }
+                      if(*(format+1+akt)=='f')
+                      {
+                              double Double=va_arg(arguments,double);
+                              double help=Double;
+                              int ten=1;
+                              if(Double<0.000){putchar('-'); help*=(-1);}
+                              if(help<1.000){ putchar('0'); }
+                                      int help2=(int)help;
+                                      while(ten<=help2)ten*=10;
+                                      ten/=10;
+                                      while(help2)
+                                      {
+                                              putchar((help2/ten)+'0');
+                                              help2=help2%ten;
+                                              ten=ten/10;
+                                      }
+                                      while(ten>0){putchar('0'); ten/=10;}
+                                      help2=(int)help;
+                                      help-=help2;
+                                      putchar('.');
+                                      help*=1000;
+                                      help2=(int)help;
+                                      if(help-help2>=0.5) help2++;
+                                      //printf("--%d--",help2);
+                                      putchar((help2/100)+'0');
+                                      help2=help2%100;
+                                      putchar((help2/10)+'0');
+                                      help2=help2%10;
+                                      putchar((help2)+'0');
+                      }
+                      akt+=2;
+              }
+              else if(*(format+akt)=='\\')
+              {
+                      if(*(format+1+akt)=='n')
+                      {
+                              putchar('\n');
+                              akt+=2;
+                      }
+              }
+              else
+              {
+                      putchar(*(format+akt));
+                      akt++;
+              }
+      }
+      va_end(arguments);
+      return;
+}
