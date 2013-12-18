@@ -59,8 +59,8 @@ int exec() {
 		
 	int i;
 	for(i = 0; cmds[i].argv != NULL; i++) {
-		if(cmds[i].argv != NULL)  { //mamy pipe'a 
-			pipe(pipe_sdf[2]); 
+		if(cmds[i+1].argv != NULL)  { //mamy pipe'a 
+			pipe(pipe_sdf); 
 		}
 		pid = fork();
 		//printf("%d\n", pid);

@@ -76,7 +76,6 @@ char * argv[];
 	}
 }
 
-
 int my_cd(argv)
 char * argv[];
 {
@@ -90,7 +89,9 @@ char * argv[];
 int my_kill(argv)
 char * argv[];
 {
-	if(!argv[2]) {
+	if(!argv[1]) {
+		my_printf("kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]\n");
+	} else if(!argv[2]) {
 		int err;
 		kill(parse(argv[1], &err), 0);
 	} else {
@@ -127,6 +128,7 @@ char * argv[];
 				my_printf(cur_f -> d_name);
 				my_printf("\n");
 			}
+			cur_f = readdir(my_dir);
 		}		
 	}
 }
@@ -140,6 +142,7 @@ char * argv[];
 		my_printf(" ");
 		my_printf(argv[i++]);
 	}
+	my_printf("\n");	
 	fflush(stdout);
 	return 0;
 }
