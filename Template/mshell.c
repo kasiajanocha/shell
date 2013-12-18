@@ -31,21 +31,22 @@ int shell_commands(command_s command) {
 }
 
 int exec_one(command_s s){
-	if(s.in_file_name != NULL) {
-			open(s.in_file_name, O_RDONLY);
-	}
-	mode_t mode = S_IRWXU | S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRGRP | S_IWGRP | S_IXGRP;
-	if(s.out_file_name != NULL) {
-		if(s.append_mode != 0) {
-			open(s.out_file_name, O_WRONLY | O_CREAT | O_APPEND, mode);
-		} else {
-			open(s.out_file_name, O_WRONLY | O_CREAT | O_TRUNC, mode);
-		}
-	}
+	// if(s.in_file_name != NULL) {
+	// 		open(s.in_file_name, O_RDONLY);
+	// }
+	// mode_t mode = S_IRWXU | S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRGRP | S_IWGRP | S_IXGRP;
+	// if(s.out_file_name != NULL) {
+	// 	if(s.append_mode != 0) {
+	// 		open(s.out_file_name, O_WRONLY | O_CREAT | O_APPEND, mode);
+	// 	} else {
+	// 		open(s.out_file_name, O_WRONLY | O_CREAT | O_TRUNC, mode);
+	// 	}
+	// }
 	if(execvp(s.argv[0], s.argv) == -1) exit(0);
 }
 
 int exec() {
+	int pid;
 	command_s* cmds = split_commands(input_buf+beg);
 	if(cmds==NULL) {
 		return 0;
@@ -61,7 +62,13 @@ int exec() {
 		if(cmds[i].argv != NULL)  { //mamy pipe'a 
 			pipe(pipe_sdf[2]); 
 		}
-		exec_one(cmds[i]);
+		pid = fork();
+		//printf("%d\n", pid);
+		if(pid == 0) {
+			exec_one(cmds[i]);
+		} else if(pid > 0) {
+			waitpid(pid, NULL, 0);
+		}
 	}
 	return 1;
 }

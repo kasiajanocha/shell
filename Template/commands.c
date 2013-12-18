@@ -56,7 +56,7 @@ command_pair dispatch_table[]={
 	{"cd", &my_cd},
 	{"kill", &my_kill},
 	{"lenv", &my_lenv},
-	{"ls", &my_ls},
+	{"lls", &my_ls},
 	{"echo", &echo},
 	{NULL,NULL}
 };
