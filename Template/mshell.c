@@ -19,12 +19,18 @@ char input_buf[2*BUFF_SIZE+1];
 int beg;
 int end;
 
-int shell_commands() {
-	
+int shell_commands(command_s command) {
+	int i;
+	for(i = 0; dispatch_table[i].name != NULL; i++) {
+		if(strcmp(dispatch_table[i].name, command.argv[0]) == 0) {
+			dispatch_table[i].fun(command.argv);
+			return 1;
+		}
+	}
+	return 0;
 }
 
 int exec_one(command_s s){
-	//
 	if(s.in_file_name != NULL) {
 			open(s.in_file_name, O_RDONLY);
 	}
@@ -36,29 +42,27 @@ int exec_one(command_s s){
 			open(s.out_file_name, O_WRONLY | O_CREAT | O_TRUNC, mode);
 		}
 	}
-	if(execvp(s.argv[0], s.argv)==-1) exit(0);
+	if(execvp(s.argv[0], s.argv) == -1) exit(0);
 }
 
 int exec() {
-	command_s* split = split_commands(input_buf+beg);
-	if(split==NULL) {
+	command_s* cmds = split_commands(input_buf+beg);
+	if(cmds==NULL) {
 		return 0;
 	}
-	int iter = 0;
-
-	int pipe_sdf[2];
-	pipe(pipe_sdf[2]);
-	int pid = fork();
-
-	if(pid>0) {
-		waitpid(pid, NULL ,0);
-	} else if (pid==0){
-		close(0);
-		dup2(0, pipe_sdf[0]);
-		
-		exec_one(split[0]);
+	if(shell_commands(cmds[0])) {
+		return 1;
 	}
 
+	int pipe_sdf[2];
+		
+	int i;
+	for(i = 0; cmds[i].argv != NULL; i++) {
+		if(cmds[i].argv != NULL)  { //mamy pipe'a 
+			pipe(pipe_sdf[2]); 
+		}
+		exec_one(cmds[i]);
+	}
 	return 1;
 }
 
