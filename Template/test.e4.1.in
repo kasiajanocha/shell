@@ -23,4 +23,3 @@ echo ----------------- test.e4.1.E
 cat < test.e4.1.E
 
 rm test.e4.1.A test.e4.1.B test.e4.1.C test.e4.1.D test.e4.1.E
-

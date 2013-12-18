@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <stdlib.h>
 
 #include "commands.h"
 #include "cparse.h"
@@ -64,8 +65,12 @@ command_pair dispatch_table[]={
 int my_exit(argv)
 char * argv[];
 {
+	if(argv[1] == NULL) {
+		exit(EXIT_SUCCESS);	
+	}
 	my_printf("exit: ");
 	my_printf(argv[1]);
+	my_printf("\n");
 	int err;
 	int arg = parse(argv[1], &err);
 	if(err != 0) {
