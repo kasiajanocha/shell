@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -25,7 +26,7 @@ int chld_pids[MAX_COMMANDS+2];
 int chld_pids_size;
 int chld_active;
 
-/* ukonczone dzieci do wypisania */
+/* ukonczone dzieci z backgroundu do wypisania */
 int ended_pid[MAX_COMMANDS+2];
 int ended_sig[MAX_COMMANDS+2];
 int ended_killed[MAX_COMMANDS+2];
@@ -34,7 +35,9 @@ int ended_processes;
 
 struct sigaction default_sigint_action;
 struct sigaction default_sigchld_action;
+
 sigset_t wait_for_us;
+sigset_t block_sig;
 
 void write_ended() {
 	int i;
@@ -67,14 +70,27 @@ void handle_sigint(int s) {
 void handle_sigchld(int s) {
 	int i; 
 	int pid;
+	int bcg;
+	int status;
 
 	/*pobieram child process id*/
-	pid = waitpid(-1, NULL, WHOHANG);
+	pid = waitpid(-1, &status, WNOHANG);
+	bcg = 1;
 
-	for(i = 0; i < ; i++) {
+	for(i = 0; i < chld_pids_size; i++) {
 		if(chld_pids[i] == pid) {
-
+			chld_active--;
+			bcg = 0;
 		}
+	}
+
+	/*zapamietujemy do wypisania ukonczone dziecko a backgroundu*/
+	if(bcg) {
+		ended_pid[ended_processes] = pid;
+		ended_sig[ended_processes] = status;
+		if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
+		else ended_killed[ended_processes] = -1;
+		ended_processes++;
 	}
 }
 
@@ -162,7 +178,11 @@ int exec() {
 		return 1;
 	}
 
+	sigprocmask(SIG_BLOCK, &block_sig, NULL);
+
 	there_was_pipe = 0;
+	chld_pids_size = 0;
+	chld_active = 0;
 	new_input = -1;
 
 	for(i = 0; cmds[i].argv != NULL; i++) {
@@ -171,9 +191,16 @@ int exec() {
 			there_was_pipe = 1;
 		}
 		pid = fork();
+		chld_pids_size++;
+		chld_active++;
 		if(pid == 0) {
 			sigaction(SIGINT, &default_sigint_action, NULL);
 			sigaction(SIGCHLD, &default_sigchld_action, NULL);
+
+			/*tworzenie nowej sesji*/
+			if(bcg) setsid();
+			/* wpp odblokowujemy SIGCHLD */
+			else sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 
 			/*trzeba przekierowac wyjscie*/
 			if(there_was_pipe) {
@@ -201,11 +228,12 @@ int exec() {
 		there_was_pipe = 0;
 	}
 	if(!bcg) {
-		for(j = 0; j < i; j++) {
-			waitpid(chld_pids[j], NULL, 0);
+		while(chld_active > 0) {
+			sigsuspend(&wait_for_us);
 		}
 	}
-
+	chld_pids_size = 0;
+	sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 	return 1;
 }
 
@@ -247,6 +275,11 @@ char* argv[];
 	size_t howmany;
 	fstat(0, &myStat);
 	write_prompt = (S_ISCHR(myStat.st_mode));
+	sigemptyset(&wait_for_us);
+	/*sigaddset(&wait_for_us, SIGCHLD); nie mozna bo trzeba lapac*/
+	sigprocmask(SIG_UNBLOCK, NULL, &wait_for_us);
+	sigemptyset(&block_sig);
+	sigaddset(&block_sig, SIGCHLD);
 	beg = end = 0;
 	handle_handlers();
 	while(1) {
@@ -254,10 +287,16 @@ char* argv[];
 			write_ended();
 			write(1, prompt, strlen(prompt));
 		}
+
+		sigprocmask(SIG_BLOCK, &block_sig, NULL);
+
 		howmany = read(0, input_buf + end, BUFF_SIZE);
 		if(howmany==0) {
 			break;
 		}
+
+		sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
+
 		end += howmany;
 		if(!travel_and_exec()) break;
 		if(end > BUFF_SIZE) {
