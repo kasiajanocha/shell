@@ -177,11 +177,12 @@ int exec() {
 	if(cmds[0].argv==NULL) {
 		return 0;
 	}
+
+	sigprocmask(SIG_BLOCK, &block_sig, NULL);
+
 	if(shell_commands(cmds[0])) {
 		return 1;
 	}
-
-	sigprocmask(SIG_BLOCK, &block_sig, NULL);
 
 	there_was_pipe = 0;
 	chld_pids_size = 0;
@@ -219,7 +220,7 @@ int exec() {
 			/*wywolywanie pojedynczej komendy*/
 			exec_one(cmds[i]);
 		} else if(pid > 0) {
-			chld_pids[i] = pid;
+			if(!bcg) chld_pids[i] = pid;
 			if(there_was_pipe) {
 				close(new_input);
 				close(pipe_sdf[1]);
