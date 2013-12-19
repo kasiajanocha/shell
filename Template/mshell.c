@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "config.h"
 #include "commands.h"
@@ -15,14 +16,83 @@
 int main(int, char**);
 
 char prompt[10]=PROMPT;
-
 char input_buf[2*BUFF_SIZE+1];
 int beg;
 int end;
 
+/* pidy dzieci nie w tle */
+int chld_pids[MAX_COMMANDS+2];
+int chld_pids_size;
+int chld_active;
+
+/* ukonczone dzieci do wypisania */
+int ended_pid[MAX_COMMANDS+2];
+int ended_sig[MAX_COMMANDS+2];
+int ended_killed[MAX_COMMANDS+2];
+int ended_processes;
+
+
+struct sigaction default_sigint_action;
+struct sigaction default_sigchld_action;
+sigset_t wait_for_us;
+
+void write_ended() {
+	int i;
+	char number[10];
+	for(i = 0; i < ended_processes; i++) {
+		my_printf("Process ");
+		to_string(ended_pid[i], number);
+		my_printf(number);
+		my_printf(" ended with status ");
+		to_string(ended_sig[i], number);
+		my_printf(number);
+
+		if(ended_killed[i] >= 0) {
+			my_printf(" killed by signal ");
+			to_string(ended_killed[i], number);
+			my_printf(number);
+		}
+		ended_killed[i] = -1;
+		my_printf(".\n");
+	}
+	ended_processes = 0;
+}
+
+/* handlery do SIGINT i SIGCHLD */
+
+void handle_sigint(int s) {
+	my_printf("\n");
+}
+
+void handle_sigchld(int s) {
+	int i; 
+	int pid;
+
+	/*pobieram child process id*/
+	pid = waitpid(-1, NULL, WHOHANG);
+
+	for(i = 0; i < ; i++) {
+		if(chld_pids[i] == pid) {
+
+		}
+	}
+}
+
+void handle_handlers() {
+	struct sigaction sigint_action;
+	struct sigaction sigchld_action;
+
+	sigint_action.sa_handler = handle_sigint;
+	sigaction(SIGINT, &sigint_action, &default_sigint_action);
+	sigchld_action.sa_handler = handle_sigchld;
+	sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
+}
+
+/* przekierowanei wyjscia*/
 void output_forwarding(command_s cmd) {
+	mode_t mode;
 	if(cmd.out_file_name == NULL) return;
-	mode_t mode = S_IRWXU | S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRGRP | S_IWGRP | S_IXGRP;
+	mode = S_IRWXU | S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRGRP | S_IWGRP | S_IXGRP;
 	
 	close(STDOUT_FILENO);
 
@@ -37,10 +107,11 @@ void output_forwarding(command_s cmd) {
 
 int shell_commands(command_s cmd) {
 	int i;
+	int old_stdout;
+	int lenv;
 	for(i = 0; dispatch_table[i].name != NULL; i++) {
 		if(strcmp(dispatch_table[i].name, cmd.argv[0]) == 0) {
-			int lenv = 0;
-			int old_stdout;
+			lenv = 0;
 			if(strcmp(dispatch_table[i].name, "lenv") == 0) {
 				lenv = 1;
 			}
@@ -61,14 +132,28 @@ int shell_commands(command_s cmd) {
 
 int exec_one(command_s cmd){
 	if(cmd.in_file_name != NULL) {
+		close(STDIN_FILENO);
 		open(cmd.in_file_name, O_RDONLY);
 	}
 	output_forwarding(cmd);
 	if(execvp(cmd.argv[0], cmd.argv) == -1) exit(0);
 }
 
+/*exec dla pojedynczej linii*/
+
 int exec() {
 	int pid;
+	int pipe_sdf[2];
+	int there_was_pipe;
+	int new_input;
+	int i;
+	int j;
+	int bcg;
+
+	there_was_pipe = 0;
+	new_input = -1;
+
+	bcg = in_background(input_buf+beg);
 	command_s* cmds = split_commands(input_buf+beg);
 	if(cmds[0].argv==NULL) {
 		return 0;
@@ -77,45 +162,54 @@ int exec() {
 		return 1;
 	}
 
-	int pipe_sdf[2];
-	int there_was_pipe = 0;
-	int new_input = -1;
+	there_was_pipe = 0;
+	new_input = -1;
 
-	int i;
 	for(i = 0; cmds[i].argv != NULL; i++) {
-		if(cmds[i+1].argv != NULL)  { //mamy pipe'a 
+		if(cmds[i+1].argv != NULL)  { /* mamy pipe'a */ 
 			pipe(pipe_sdf);
 			there_was_pipe = 1;
 		}
 		pid = fork();
 		if(pid == 0) {
-			//trzeba przekierowac wyjscie
+			sigaction(SIGINT, &default_sigint_action, NULL);
+			sigaction(SIGCHLD, &default_sigchld_action, NULL);
+
+			/*trzeba przekierowac wyjscie*/
 			if(there_was_pipe) {
 				dup2(pipe_sdf[1], STDOUT_FILENO);
-				close(pipe_sdf[0]);
 				close(pipe_sdf[1]);
+				close(pipe_sdf[0]);
 			}
-			//przek wyjscia
+			/*przek wyjscia*/
 			if(new_input != -1) {
 				dup2(new_input, STDIN_FILENO);
 				close(new_input);
-				close(pipe_sdf[1]);
 			}
+			/*wywolywanie pojedynczej komendy*/
 			exec_one(cmds[i]);
 		} else if(pid > 0) {
-			waitpid(pid, NULL, 0);
+			chld_pids[i] = pid;
 			if(there_was_pipe) {
-				close(pipe_sdf[0]);
+				close(new_input);
 				close(pipe_sdf[1]);
 			}
 		}
 		if(there_was_pipe) {
-			new_input = pipe_sdf[1];
+			new_input = pipe_sdf[0];
 		}
 		there_was_pipe = 0;
 	}
+	if(!bcg) {
+		for(j = 0; j < i; j++) {
+			waitpid(chld_pids[j], NULL, 0);
+		}
+	}
+
 	return 1;
 }
+
+/* wywoluje execa */
 
 int travel_and_exec() {
 	int beg_prim = beg;
@@ -133,6 +227,7 @@ int travel_and_exec() {
 	return 1;
 }
 
+/* handler wejscia */
 void rewrite() {
 	int len = end - beg;
 	int i;
@@ -147,13 +242,19 @@ int main(argc, argv)
 int argc;
 char* argv[];
 {
-	beg = end = 0;
 	struct stat myStat;
+	int write_prompt;
+	size_t howmany;
 	fstat(0, &myStat);
-	int write_prompt = (S_ISCHR(myStat.st_mode));
+	write_prompt = (S_ISCHR(myStat.st_mode));
+	beg = end = 0;
+	handle_handlers();
 	while(1) {
-		if(write_prompt) write(1, prompt, strlen(prompt));
-		size_t howmany = read(0, input_buf + end, BUFF_SIZE);
+		if(write_prompt) {
+			write_ended();
+			write(1, prompt, strlen(prompt));
+		}
+		howmany = read(0, input_buf + end, BUFF_SIZE);
 		if(howmany==0) {
 			break;
 		}

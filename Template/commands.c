@@ -20,27 +20,24 @@ int my_ls(char*[]);
 extern char **environ;
 extern int *errno;
 
-//parses string to int
-int parse(char *s, int* error) {
-	int result = 0;
-	*error = 0;
-	int neg = 1;
-	int ten_pow = 1;
-	int len = strlen(s);
-	if(s[0] == '-') {
-		neg = -1;
-	}
+void to_string(int arg, char * c) {
+	int argcp;
+	int digits;
 	int i;
-	for(i = len - 1; i >=0; i--) {
-		if(s[i] >='0' && s[i] <='9') {
-			result += s[i] - '0';
-		} else {
-			if(i==0 && s[i] == '-') continue;
-			*error = 1;
-		} 
-		ten_pow *= 10;
+	argcp = arg;
+	digits = 0;
+	if(argcp == 0) {
+		digits = 1;
+	} else while(argcp) {
+		argcp /= 10;
+		digits++;
 	}
-	return result;
+	argcp = arg;
+	c[digits] = '\0';
+	for(i = digits-1; i >=0; i--) {
+		c[i] = argcp%10 + '0';
+		argcp /= 10;
+	}
 }
 
 void my_printf(char * arg) {
@@ -72,13 +69,7 @@ char * argv[];
 	my_printf(argv[1]);
 	my_printf("\n");
 	int err;
-	int arg = parse(argv[1], &err);
-	if(err != 0) {
-		my_printf("invalid argument: not an int!\n");
-		exit(255);
-	} else {
-		exit(arg);
-	}
+	exit(atoi(argv[1]));
 }
 
 int my_cd(argv)
@@ -97,11 +88,9 @@ char * argv[];
 	if(!argv[1]) {
 		my_printf("kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]\n");
 	} else if(!argv[2]) {
-		int err;
-		kill(parse(argv[1], &err), 0);
+		kill(atoi(argv[1]), 15);
 	} else {
-		int err1, err2;
-		kill(parse(argv[2], &err1), parse(argv[1], &err2));
+		kill(atoi(argv[2]), (-1)*atoi(argv[1]));
 	}
 	fflush(stdout);
 }

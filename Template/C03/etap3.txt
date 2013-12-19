@@ -72,7 +72,7 @@ TERM=minix
 PATH=/home/dude/bin:/usr/local/bin:/bin:/usr/bin
 SHELL=/bin/sh
 TZ=GMT0
-EDITOR=vi
+EDITOR=vi 
 > exit
 
 Syscall checklist: exit, chdir, kill, readdir, opendir/fdopendir, closedir
