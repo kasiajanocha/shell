@@ -75,22 +75,25 @@ void handle_sigchld(int s) {
 
 	/*pobieram child process id*/
 	pid = waitpid(-1, &status, WNOHANG);
-	bcg = 1;
+	while(pid > 0) {
+		bcg = 1;
 
-	for(i = 0; i < chld_pids_size; i++) {
-		if(chld_pids[i] == pid) {
-			chld_active--;
-			bcg = 0;
+		for(i = 0; i < chld_pids_size; i++) {
+			if(chld_pids[i] == pid) {
+				chld_active--;
+				bcg = 0;
+			}
 		}
-	}
 
-	/*zapamietujemy do wypisania ukonczone dziecko a backgroundu*/
-	if(bcg) {
-		ended_pid[ended_processes] = pid;
-		ended_sig[ended_processes] = status;
-		if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
-		else ended_killed[ended_processes] = -1;
-		ended_processes++;
+		/*zapamietujemy do wypisania ukonczone dziecko a backgroundu*/
+		if(bcg) {
+			ended_pid[ended_processes] = pid;
+			ended_sig[ended_processes] = status;
+			if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
+			else ended_killed[ended_processes] = -1;
+			ended_processes++;
+		}
+		pid = waitpid(-1, &status, WNOHANG);
 	}
 }
 
