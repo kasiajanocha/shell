@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "commands.h"
 #include "cparse.h"
@@ -91,7 +92,7 @@ char * argv[];
 	if(!argv[1]) {
 		my_printf("kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ... or kill -l [sigspec]\n");
 	} else if(!argv[2]) {
-		kill(atoi(argv[1]), 15);
+			kill(atoi(argv[1]), 15);
 	} else {
 		kill(atoi(argv[2]), (-1)*atoi(argv[1]));
 	}

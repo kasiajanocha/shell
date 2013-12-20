@@ -49,20 +49,28 @@ void write_ended() {
 		my_printf("Process ");
 		to_string(ended_pid[i], number);
 		my_printf(number);
-		my_printf(" ended with status ");
-		to_string(ended_sig[i], number);
-		my_printf(number);
-
 		if(ended_killed[i] >= 0) {
 			my_printf(" killed by signal ");
 			to_string(ended_killed[i], number);
 			my_printf(number);
+			ended_killed[i] = -1;
+		} else {
+			my_printf(" ended with status ");
+			to_string(ended_sig[i], number);
+			my_printf(number);
 		}
-		ended_killed[i] = -1;
 		my_printf(".\n");
 	}
 	ended_processes = 0;
 	sigprocmask(SIG_UNBLOCK,&block_sig,NULL);
+}
+
+void save_process(int pid, int status) {
+	ended_pid[ended_processes] = pid;
+	ended_sig[ended_processes] = status;
+	if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
+	else ended_killed[ended_processes] = -1;
+	ended_processes++;
 }
 
 /* handlery do SIGINT i SIGCHLD */
@@ -76,9 +84,8 @@ void handle_sigchld(int s) {
 	int pid;
 	int bcg;
 	int status;
-	my_printf("wszedlem\n");
 	/* pobieram child process id */
-	while((pid = waitpid(-1, &status, WNOHANG)) > 0) {my_printf("O PRZYSZLO ");char temp[20]; to_string(pid,temp); my_printf(temp);my_printf("\n");
+	while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		bcg = 1;
 		fflush(stdout);
 		for(i = 0; i < chld_pids_size; i++) {
@@ -91,11 +98,7 @@ void handle_sigchld(int s) {
 
 		/* zapamietujemy do wypisania ukonczone dziecko z backgroundu */
 		if(bcg && ended_processes < MAX_COMMANDS) {
-			ended_pid[ended_processes] = pid;
-			ended_sig[ended_processes] = status;
-			if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
-			else ended_killed[ended_processes] = -1;
-			ended_processes++;
+			save_process(pid,status);
 		}
 	}
 }
@@ -110,7 +113,7 @@ void handle_handlers() {
 
 	sigchld_action.sa_handler = handle_sigchld;
 	sigfillset(&sigchld_action.sa_mask);
-	// sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
+	sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
 }
 
 /* przekierowanie wyjscia */
@@ -134,9 +137,7 @@ int shell_commands(command_s cmd) {
 	int i;
 	int old_stdout;
 	int lenv;
-	my_printf("shell_commands check ");
-	if (cmd.argv[0]) my_printf(cmd.argv[0]);
-	my_printf("\n");
+
 	for(i = 0; dispatch_table[i].name != NULL; i++) {
 		if(strcmp(dispatch_table[i].name, cmd.argv[0]) == 0) {
 			lenv = 0;
@@ -176,9 +177,8 @@ int exec() {
 	int new_input;
 	int i;
 	int bcg;
+	int status;
 	command_s* cmds;
-
-	my_printf("wchodze w exec\n");
 	there_was_pipe = 0;
 	new_input = -1;
 
@@ -242,22 +242,22 @@ int exec() {
 		}
 		there_was_pipe = 0;
 	}
-	my_printf("koniec petli\nCZEKAM NA ");
-	char temp[20];
-	to_string(chld_active,temp);
-	my_printf(temp);
-	my_printf(" ");
-	to_string(chld_pids_size,temp);
-	my_printf(temp);
-	my_printf("\n");
 	if(!bcg) {
 		while(chld_active > 0) {
-			my_printf("sigsuspend zaraz\n");
-			sigsuspend(&wait_for_us);
-			sleep(1);
+			/* sigsuspend(&wait_for_us);*/
+			pid = waitpid(-1,&status,0); 
+			bcg = 1;
+			if (pid <= 0) {
+				continue;
+			}
+			for (i=0;i<chld_pids_size;i++) if(chld_pids[i] == pid) bcg = 0;
+			if (!bcg) {
+				chld_active--;
+			} else if (ended_processes < MAX_COMMANDS) {
+				save_process(pid,status);
+			}
 		}
 	}
-	my_printf("koniec while\n");
 	chld_pids_size = 0;
 	sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 	return 1;
@@ -313,9 +313,7 @@ char* argv[];
 			write(1, prompt, strlen(prompt));
 		}
 
-		//sigprocmask(SIG_BLOCK, &block_sig, NULL);
-
-		while((howmany = read(0,input_buf+end,BUFF_SIZE) )<0) {
+		while((howmany = read(0,input_buf+end,BUFF_SIZE))<0) {
 			if (errno != EINTR) {
 				exit(EXIT_FAILURE);
 			} 
@@ -323,8 +321,6 @@ char* argv[];
 		if(howmany==0) {
 			break;
 		}
-
-		//sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 
 		end += howmany;
 		if(!travel_and_exec()) break;
