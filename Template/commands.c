@@ -17,6 +17,7 @@ int my_kill(char*[]);
 int my_lenv(char*[]);
 int my_ls(char*[]);
 
+
 extern char **environ;
 extern int *errno;
 
@@ -63,13 +64,14 @@ int my_exit(argv)
 char * argv[];
 {
 	if(argv[1] == NULL) {
+		my_printf("exit.\n");
 		exit(EXIT_SUCCESS);	
 	}
 	my_printf("exit: ");
 	my_printf(argv[1]);
 	my_printf("\n");
-	int err;
 	exit(atoi(argv[1]));
+	return 1;
 }
 
 int my_cd(argv)
@@ -80,6 +82,7 @@ char * argv[];
 	} else {
 		chdir(getenv("HOME"));
 	}
+	return 1;
 }
 
 int my_kill(argv)
@@ -93,27 +96,30 @@ char * argv[];
 		kill(atoi(argv[2]), (-1)*atoi(argv[1]));
 	}
 	fflush(stdout);
+	return 1;
 }
 
 
 int my_lenv(argv)
 char * argv[];
 {
-	//wypisz wszystkie rzeczy z environ
+	/*wypisz wszystkie rzeczy z environ*/
 	char **cur;
 	for(cur = environ; *cur != NULL; cur++) {
 		my_printf(*cur);
 		my_printf("\n");
 	}
 	fflush(stdout);
+	return 1;
 }
 
 int my_ls(argv)
 char * argv[];
 {
+	DIR *my_dir;
 	char dir[BUFF_SIZE];
 	getcwd(dir, BUFF_SIZE);
-	DIR *my_dir = opendir(dir);
+	my_dir = opendir(dir);
 	if(my_dir != NULL) {
 		struct dirent * cur_f;
 		cur_f = readdir(my_dir);
@@ -125,6 +131,7 @@ char * argv[];
 			cur_f = readdir(my_dir);
 		}		
 	}
+	return 1;
 }
 
 int echo(argv)

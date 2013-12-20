@@ -82,6 +82,7 @@ void handle_sigchld(int s) {
 			if(chld_pids[i] == pid) {
 				chld_active--;
 				bcg = 0;
+				return;
 			}
 		}
 
@@ -149,7 +150,7 @@ int shell_commands(command_s cmd) {
 	return 0;
 }
 
-int exec_one(command_s cmd){
+void exec_one(command_s cmd){
 	if(cmd.in_file_name != NULL) {
 		close(STDIN_FILENO);
 		open(cmd.in_file_name, O_RDONLY);
@@ -166,14 +167,14 @@ int exec() {
 	int there_was_pipe;
 	int new_input;
 	int i;
-	int j;
 	int bcg;
+	command_s* cmds;
 
 	there_was_pipe = 0;
 	new_input = -1;
 
 	bcg = in_background(input_buf+beg);
-	command_s* cmds = split_commands(input_buf+beg);
+	cmds = split_commands(input_buf+beg);
 	if(cmds[0].argv==NULL) {
 		return 0;
 	}
@@ -249,8 +250,7 @@ int travel_and_exec() {
 		while(beg_prim < end && input_buf[beg_prim] != '\n') {
 			beg_prim++;
 		}
-		if (input_buf[beg_prim]=='\n')
-		{
+		if (input_buf[beg_prim]=='\n') {
 			input_buf[beg_prim] = '\0';
 			exec();
 			beg = beg_prim+1;
