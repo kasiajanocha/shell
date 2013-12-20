@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "config.h"
 #include "commands.h"
@@ -42,6 +43,8 @@ sigset_t block_sig;
 void write_ended() {
 	int i;
 	char number[10];
+
+	sigprocmask(SIG_BLOCK,&block_sig,NULL);
 	for(i = 0; i < ended_processes; i++) {
 		my_printf("Process ");
 		to_string(ended_pid[i], number);
@@ -59,6 +62,7 @@ void write_ended() {
 		my_printf(".\n");
 	}
 	ended_processes = 0;
+	sigprocmask(SIG_UNBLOCK,&block_sig,NULL);
 }
 
 /* handlery do SIGINT i SIGCHLD */
@@ -68,33 +72,31 @@ void handle_sigint(int s) {
 }
 
 void handle_sigchld(int s) {
-	int i; 
+	int i;
 	int pid;
 	int bcg;
 	int status;
-
-	/*pobieram child process id*/
-	pid = waitpid(-1, &status, WNOHANG);
-	while(pid > 0) {
+	my_printf("wszedlem\n");
+	/* pobieram child process id */
+	while((pid = waitpid(-1, &status, WNOHANG)) > 0) {my_printf("O PRZYSZLO ");char temp[20]; to_string(pid,temp); my_printf(temp);my_printf("\n");
 		bcg = 1;
-
+		fflush(stdout);
 		for(i = 0; i < chld_pids_size; i++) {
 			if(chld_pids[i] == pid) {
 				chld_active--;
 				bcg = 0;
-				return;
+				break;
 			}
 		}
 
-		/*zapamietujemy do wypisania ukonczone dziecko a backgroundu*/
-		if(bcg) {
+		/* zapamietujemy do wypisania ukonczone dziecko z backgroundu */
+		if(bcg && ended_processes < MAX_COMMANDS) {
 			ended_pid[ended_processes] = pid;
 			ended_sig[ended_processes] = status;
 			if(WIFSIGNALED(status)) ended_killed[ended_processes] = WTERMSIG(status);
 			else ended_killed[ended_processes] = -1;
 			ended_processes++;
 		}
-		pid = waitpid(-1, &status, WNOHANG);
 	}
 }
 
@@ -103,12 +105,15 @@ void handle_handlers() {
 	struct sigaction sigchld_action;
 
 	sigint_action.sa_handler = handle_sigint;
+	sigfillset(&sigint_action.sa_mask);
 	sigaction(SIGINT, &sigint_action, &default_sigint_action);
+
 	sigchld_action.sa_handler = handle_sigchld;
-	sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
+	sigfillset(&sigchld_action.sa_mask);
+	// sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
 }
 
-/* przekierowanei wyjscia*/
+/* przekierowanie wyjscia */
 void output_forwarding(command_s cmd) {
 	mode_t mode;
 	if(cmd.out_file_name == NULL) return;
@@ -129,6 +134,9 @@ int shell_commands(command_s cmd) {
 	int i;
 	int old_stdout;
 	int lenv;
+	my_printf("shell_commands check ");
+	if (cmd.argv[0]) my_printf(cmd.argv[0]);
+	my_printf("\n");
 	for(i = 0; dispatch_table[i].name != NULL; i++) {
 		if(strcmp(dispatch_table[i].name, cmd.argv[0]) == 0) {
 			lenv = 0;
@@ -156,7 +164,7 @@ void exec_one(command_s cmd){
 		open(cmd.in_file_name, O_RDONLY);
 	}
 	output_forwarding(cmd);
-	if(execvp(cmd.argv[0], cmd.argv) == -1) exit(0);
+	if(execvp(cmd.argv[0], cmd.argv) == -1) exit(EXIT_FAILURE);
 }
 
 /*exec dla pojedynczej linii*/
@@ -170,6 +178,7 @@ int exec() {
 	int bcg;
 	command_s* cmds;
 
+	my_printf("wchodze w exec\n");
 	there_was_pipe = 0;
 	new_input = -1;
 
@@ -182,6 +191,7 @@ int exec() {
 	sigprocmask(SIG_BLOCK, &block_sig, NULL);
 
 	if(shell_commands(cmds[0])) {
+		sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 		return 1;
 	}
 
@@ -195,17 +205,17 @@ int exec() {
 			pipe(pipe_sdf);
 			there_was_pipe = 1;
 		}
-		pid = fork();
 		chld_pids_size++;
 		chld_active++;
+		pid = fork();
 		if(pid == 0) {
 			sigaction(SIGINT, &default_sigint_action, NULL);
 			sigaction(SIGCHLD, &default_sigchld_action, NULL);
 
-			/*tworzenie nowej sesji*/
+			/* tworzenie nowej sesji */
 			if(bcg) setsid();
 			/* wpp odblokowujemy SIGCHLD */
-			else sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
+			sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 
 			/*trzeba przekierowac wyjscie*/
 			if(there_was_pipe) {
@@ -232,11 +242,22 @@ int exec() {
 		}
 		there_was_pipe = 0;
 	}
+	my_printf("koniec petli\nCZEKAM NA ");
+	char temp[20];
+	to_string(chld_active,temp);
+	my_printf(temp);
+	my_printf(" ");
+	to_string(chld_pids_size,temp);
+	my_printf(temp);
+	my_printf("\n");
 	if(!bcg) {
 		while(chld_active > 0) {
+			my_printf("sigsuspend zaraz\n");
 			sigsuspend(&wait_for_us);
+			sleep(1);
 		}
 	}
+	my_printf("koniec while\n");
 	chld_pids_size = 0;
 	sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 	return 1;
@@ -279,9 +300,9 @@ char* argv[];
 	size_t howmany;
 	fstat(0, &myStat);
 	write_prompt = (S_ISCHR(myStat.st_mode));
-	sigemptyset(&wait_for_us);
-	/*sigaddset(&wait_for_us, SIGCHLD); nie mozna bo trzeba lapac*/
-	sigprocmask(SIG_UNBLOCK, NULL, &wait_for_us);
+	/* sigemptyset(&wait_for_us);
+	sigaddset(&wait_for_us, SIGCHLD); nie mozna bo trzeba lapac*/
+	sigprocmask(SIG_BLOCK, NULL, &wait_for_us);
 	sigemptyset(&block_sig);
 	sigaddset(&block_sig, SIGCHLD);
 	beg = end = 0;
@@ -292,14 +313,18 @@ char* argv[];
 			write(1, prompt, strlen(prompt));
 		}
 
-		sigprocmask(SIG_BLOCK, &block_sig, NULL);
+		//sigprocmask(SIG_BLOCK, &block_sig, NULL);
 
-		howmany = read(0, input_buf + end, BUFF_SIZE);
+		while((howmany = read(0,input_buf+end,BUFF_SIZE) )<0) {
+			if (errno != EINTR) {
+				exit(EXIT_FAILURE);
+			} 
+		}
 		if(howmany==0) {
 			break;
 		}
 
-		sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
+		//sigprocmask(SIG_UNBLOCK, &block_sig, NULL);
 
 		end += howmany;
 		if(!travel_and_exec()) break;
