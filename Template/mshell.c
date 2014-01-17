@@ -107,7 +107,7 @@ void handle_handlers() {
 	struct sigaction sigint_action;
 	struct sigaction sigchld_action;
 
-	sigint_action.sa_handler = handle_sigint;
+	sigint_action.sa_handler = SIG_IGN;
 	sigfillset(&sigint_action.sa_mask);
 	sigaction(SIGINT, &sigint_action, &default_sigint_action);
 
@@ -244,7 +244,8 @@ int exec() {
 	}
 	if(!bcg) {
 		while(chld_active > 0) {
-			/* sigsuspend(&wait_for_us);*/
+			sigsuspend(&wait_for_us);
+			/*	---FOR LINUX---
 			pid = waitpid(-1,&status,0); 
 			bcg = 1;
 			if (pid <= 0) {
@@ -255,7 +256,7 @@ int exec() {
 				chld_active--;
 			} else if (ended_processes < MAX_COMMANDS) {
 				save_process(pid,status);
-			}
+			}*/
 		}
 	}
 	chld_pids_size = 0;
@@ -298,6 +299,7 @@ char* argv[];
 	struct stat myStat;
 	int write_prompt;
 	size_t howmany;
+	int my_flag;
 	fstat(0, &myStat);
 	write_prompt = (S_ISCHR(myStat.st_mode));
 	/* sigemptyset(&wait_for_us);
@@ -306,18 +308,23 @@ char* argv[];
 	sigemptyset(&block_sig);
 	sigaddset(&block_sig, SIGCHLD);
 	beg = end = 0;
+	my_flag = 1;
 	handle_handlers();
 	while(1) {
-		if(write_prompt) {
+		if(my_flag && write_prompt) {
 			write_ended();
 			write(1, prompt, strlen(prompt));
 		}
+		
+		my_flag = 1;
 
 		while((howmany = read(0,input_buf+end,BUFF_SIZE))<0) {
+			my_flag = 0;
 			if (errno != EINTR) {
 				exit(EXIT_FAILURE);
 			} 
 		}
+		if (howmany == -1 && errno == EINTR) my_flag = 0;
 		if(howmany==0) {
 			break;
 		}

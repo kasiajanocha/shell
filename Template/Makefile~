@@ -1,6 +1,6 @@
 
 OBJECTS=mshell.o commands.o cparse.o
-HEADERS=commands.h cparse.h config.h	
+HEADERS=commands.h cparse.h config.h
 
 NAME=mshell
 
