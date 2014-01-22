@@ -26,14 +26,14 @@ void consumeBuffer(volatile char * buf){
 void consumer(int c){
 	char A[2];
 
-	close(pipe[3-c][STDOUT_FILENO]);
-	close(pipe[3-c][STDIN_FILENO]);
-	close(pipe[0][STDIN_FILENO]);
-	close(pipe[c][STDOUT_FILENO]);
+	close(pipes[3-c][STDOUT_FILENO]);
+	close(pipes[3-c][STDIN_FILENO]);
+	close(pipes[0][STDIN_FILENO]);
+	close(pipes[c][STDOUT_FILENO]);
 
-	while(read(pipe[c][STDIN_FILENO], A, 1)) {	
+	while(read(pipes[c][STDIN_FILENO], A, 1)) {	
 		consumeBuffer(buffer);
-		write(pipe[0][STDOUT_FILENO], A, 1);
+		write(pipes[0][STDOUT_FILENO], A, 1);
 	}
 	
 	exit(0);
@@ -44,15 +44,15 @@ void producer(int c1, int c2){
 	close(1);
 	if (open( "pr.out", O_CREAT|O_TRUNC|O_WRONLY,S_IWUSR|S_IRUSR)!=1) exit(1);
 
-	close(pipe[1][STDIN_FILENO]);
-	close(pipe[2][STDIN_FILENO]);
-	close(pipe[0][STDOUT_FILENO]);
+	close(pipes[1][STDIN_FILENO]);
+	close(pipes[2][STDIN_FILENO]);
+	close(pipes[0][STDOUT_FILENO]);
 
 	for (int i=0; i<ROUNDS; i++) {
 		fillBuffer(buffer);
-		write(pipe[1][STDOUT_FILENO], A, 1);
-		write(pipe[2][STDOUT_FILENO], A, 1);
-		read(pipe[0][STDIN_FILENO], A, 1);
+		write(pipes[1][STDOUT_FILENO], A, 1);
+		write(pipes[2][STDOUT_FILENO], A, 1);
+		read(pipes[0][STDIN_FILENO], A, 1);
 		consumeBuffer(buffer);
 	}
 }
@@ -74,9 +74,9 @@ int main(){
 
 	buffer = (char *) mmap(NULL, CHUNK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
 
-	pipe(pipe[0]);
-	pipe(pipe[1]);
-	pipe(pipe[2]);
+	pipe(pipes[0]);
+	pipe(pipes[1]);
+	pipe(pipes[2]);
 
 	c1= fork();
 	if (c1==0) run_consumer(1);
