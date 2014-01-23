@@ -15,7 +15,7 @@ Dodajemy nowy serwer:
 	- po reboocie proces servera powinien być działającym serwerem ('ps ax | grep mcs')
 
 3. Zmiana uprawnień tak aby procesy użytkownika mogły się komunikować z nowym serverem:
-	- uaktualnij wartość USR_M w pliku src/kernel/table.c
+	- uaktualnij wartość USR_M w pl	iku src/kernel/table.c
 
 
 

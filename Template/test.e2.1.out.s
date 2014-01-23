@@ -2,7 +2,7 @@ kasia
 total 12
 4 drwxr-xr-x  3 root  root  4096 lis  5 15:20 .
 4 drwxr-xr-x 23 root  root  4096 gru 11 10:12 ..
-4 drwxr-xr-x 31 kasia kasia 4096 gru 19 15:51 kasia
+4 drwxr-xr-x 31 kasia kasia 4096 gru 20 11:24 kasia
 DISTRIB_ID=Ubuntu
 DISTRIB_RELEASE=13.10
 DISTRIB_CODENAME=saucy
