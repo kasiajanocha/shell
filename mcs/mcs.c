@@ -3,8 +3,14 @@
 /* Set debugging level to 0, 1, or 2 to see no, some, all debug output. */
 #define DEBUG_LEVEL	1
 #define DPRINTF		if (DEBUG_LEVEL > 0) printf
-#define LOCK LOCK_SIGNAL_NMB
-#define UNLOCK LOCK_SIGNAL_NMB + 1
+
+#define MUT1 m_u.m_m1.m1i1
+#define COND1 m_u.m_m1.m1i2
+
+#define LOCK 91
+#define UNLOCK 92
+#define WAIT 93
+#define BROADCAST 94
 
 /* Allocate space for the global variables. */
 message m_in;		/* the input message itself */
@@ -28,8 +34,6 @@ FORWARD _PROTOTYPE(void init_server, (int argc, char **argv)		);
 FORWARD _PROTOTYPE(void exit_server, (void)				);
 FORWARD _PROTOTYPE(void get_work, (void)				);
 FORWARD _PROTOTYPE(void reply, (int whom, int result)			);
-// FORWARD _PROTOTYPE(void lock, (int mut, int who)      );
-// FORWARD _PROTOTYPE(void unlock, (int mut, int who)      );
 
 
 
@@ -62,7 +66,7 @@ PUBLIC int main(int argc, char **argv)
           }
           continue;
       case LOCK
-          
+
       default: 
           report("MCS","warning, got illegal request from %d\n", m_in.m_source);
           result = EINVAL;
